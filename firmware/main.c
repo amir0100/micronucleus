@@ -333,6 +333,7 @@ static inline void initForUsbConnectivity(void) {
 //    sei();
 }
 
+#if 0
 static inline void tiny85FlashInit(void) {
     // check for erased first page (no bootloader interrupt vectors), add vectors if missing
     // this needs to happen for usb communication to work later - essential to first run after bootloader
@@ -344,12 +345,9 @@ static inline void tiny85FlashInit(void) {
     currentAddress = 0;
 }
 
+
 static inline void tiny85FlashWrites(void) {
       
-//    _delay_us(2000); // TODO: why is this here? - it just adds pointless two level deep loops seems like?
-    // write page to flash, interrupts will be disabled for > 4.5ms including erase
-    
-    // TODO: Do we need this? Wouldn't the programmer always send full sized pages?
 
 #if SPM_PAGESIZE<256
 	// Hack to reduce code size
@@ -364,7 +362,7 @@ static inline void tiny85FlashWrites(void) {
         writeFlashPage(); // otherwise just write it
     }
 }
-
+#endif
 // reset system to a normal state and launch user program
 static inline void leaveBootloader(void) {
     _delay_ms(10); // removing delay causes USB errors
@@ -409,7 +407,7 @@ int main(void) {
 	MCUSR=0;    /* clean wdt reset bit if reset occured due to wdt */
     wdt_disable();
  //   wdt_enable(WDTO_1S);      /* enable watchdog and set to 500ms. */
-    tiny85FlashInit();
+//    tiny85FlashInit();
     bootLoaderInit();
 	
 #	if AUTO_EXIT_NO_USB_MS	
@@ -430,6 +428,7 @@ int main(void) {
         
         initForUsbConnectivity();
     	
+ // The timing        
         do {
 
         wdt_reset();
@@ -464,7 +463,9 @@ int main(void) {
             // needs to wait 5-6ms.
            
              if (isEvent(EVENT_ERASE_APPLICATION)) eraseApplication();
-            if (isEvent(EVENT_WRITE_PAGE)) tiny85FlashWrites();
+             if (isEvent(EVENT_WRITE_PAGE)) writeFlashPage();   // This is only ever called when the page is full. No need for page filling
+         
+//             if (isEvent(EVENT_WRITE_PAGE)) tiny85FlashWrites();
 
 #       if BOOTLOADER_CAN_EXIT            
             if (isEvent(EVENT_EXECUTE)) { // when host requests device run uploaded program
