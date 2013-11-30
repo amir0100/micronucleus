@@ -236,10 +236,10 @@ int main(void) {
         osccal_default = OSCCAL;
     #endif
 
-    cli();  /* polled version always has interrupts disabled */
-	MCUSR=0;    /* clean wdt reset bit if reset occured due to wdt */
+  	MCUSR=0;    /* clean wdt reset bit if reset occured due to wdt */
     wdt_disable();
  //   wdt_enable(WDTO_1S);      /* enable watchdog and set to 500ms. */
+    cli();  /* polled version always has interrupts disabled */
     bootLoaderInit();
 	
 #	if AUTO_EXIT_NO_USB_MS	
