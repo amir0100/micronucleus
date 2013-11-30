@@ -90,7 +90,7 @@
 .global calibrateOscillatorASM
 calibrateOscillatorASM:
 
-	cli
+;	cli
 	ldi		opD, 255	
 
 	ldi		try, 128	; calibration start value
@@ -147,7 +147,7 @@ usbCOnoneighborhoodsearch:
 
 	out		OSCCAL, opV
 	nop
-	sei
+;	sei
     ret
 
 #undef i

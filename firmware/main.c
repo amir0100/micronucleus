@@ -102,7 +102,6 @@ static addr_t currentAddress; // current progmem address, used for erasing and w
  static uint8_t osccal_default;  // due to compiler insanity, having this as global actually saves memory
 #endif 
 
-
 /* ------------------------------------------------------------------------ */
 static inline void eraseApplication(void);
 static void writeFlashPage(void);
@@ -127,7 +126,7 @@ static inline void eraseApplication(void) {
     // during upload
 	addr_t ptr = BOOTLOADER_ADDRESS;
 
-    cli();
+  //  cli();
     while (ptr) {
         ptr -= SPM_PAGESIZE;
         
@@ -137,17 +136,17 @@ static inline void eraseApplication(void) {
     
 	currentAddress = 0;
     fillFlashWithVectors();
-    sei();
+  //  sei();
 }
 
 // simply write currently stored page in to already erased flash memory
 static void writeFlashPage(void) {
-    uint8_t previous_sreg = SREG; // backup current interrupt setting
-    cli();
+ //   uint8_t previous_sreg = SREG; // backup current interrupt setting
+//    cli();
     boot_page_write(currentAddress - 2);
    //  boot_spm_busy_wait(); // Wait until the memory is written.
    // CPU is halted anyways
-    SREG = previous_sreg; // restore interrupts to previous state
+ //   SREG = previous_sreg; // restore interrupts to previous state
 }
 
 // clear memory which stores data to be written by next writeFlashPage call
@@ -190,10 +189,10 @@ static void writeWordToPageBuffer(uint16_t data) {
     // in the page buffer already
     if (currentAddress == 0x0000) __boot_page_fill_clear();
     
-    previous_sreg = SREG; // backup previous interrupt settings
-    cli(); // ensure interrupts are disabled
+  //  previous_sreg = SREG; // backup previous interrupt settings
+  //  cli(); // ensure interrupts are disabled
     boot_page_fill(currentAddress, data);
-    SREG = previous_sreg; // restore previous interrupt setting
+//    SREG = previous_sreg; // restore previous interrupt setting
     
     // only need to erase if there is data already in the page that doesn't match what we're programming
     // TODO: what about this: if (pgm_read_word(currentAddress) & data != data) { ??? should work right?
@@ -331,7 +330,7 @@ static inline void initForUsbConnectivity(void) {
     _delay_ms(300);        // reduced to 300ms from 500ms to allow faster resetting when no usb connected
     usbDeviceConnect();
     usbInit();    // Initialize INT settings after reconnect
-    sei();
+//    sei();
 }
 
 static inline void tiny85FlashInit(void) {
@@ -346,7 +345,8 @@ static inline void tiny85FlashInit(void) {
 }
 
 static inline void tiny85FlashWrites(void) {
-    _delay_us(2000); // TODO: why is this here? - it just adds pointless two level deep loops seems like?
+      
+//    _delay_us(2000); // TODO: why is this here? - it just adds pointless two level deep loops seems like?
     // write page to flash, interrupts will be disabled for > 4.5ms including erase
     
     // TODO: Do we need this? Wouldn't the programmer always send full sized pages?
@@ -370,7 +370,7 @@ static inline void leaveBootloader(void) {
     _delay_ms(10); // removing delay causes USB errors
     
     bootLoaderExit();
-    cli();
+ //   cli();
 	usbDeviceDisconnect();  /* Disconnect micronucleus */
 
     wdt_disable();      /* Disable watchdog */
@@ -405,9 +405,10 @@ int main(void) {
         uint8_t prescaler_default = CLKPR;
     #endif
 
-	// MCUSR=0;    /* clean wdt reset bit if reset occured due to wdt */
-  //  wdt_disable();
-    wdt_enable(WDTO_1S);      /* enable watchdog and set to 500ms. */
+    cli();  /* polled version always has interrupts disabled */
+	MCUSR=0;    /* clean wdt reset bit if reset occured due to wdt */
+    wdt_disable();
+ //   wdt_enable(WDTO_1S);      /* enable watchdog and set to 500ms. */
     tiny85FlashInit();
     bootLoaderInit();
 	
@@ -428,18 +429,41 @@ int main(void) {
 #       endif 
         
         initForUsbConnectivity();
-        
- 	
+    	
         do {
 
-			usbPoll();
-            wdt_reset();
-            _delay_us(100);
-            
+        wdt_reset();
+        uint8_t n=100;
+        while (--n)
+        {
+            if (USB_INTR_PENDING & (1<<USB_INTR_PENDING_BIT)) 
+            {
+                PCINT0_vect();
+                n=100;
+             }
+        }
+        
+   		usbPoll();
+
+        if (events)
+        {
+            // Make sure all USB activity has finished before running any blocking events
+            uint16_t n=1000;
+            while (--n)
+            {
+                if (USB_INTR_PENDING & (1<<USB_INTR_PENDING_BIT)) 
+                {
+                    PCINT0_vect();
+                    n=1000;
+                }
+            } 
+
             // these next two freeze the chip for ~ 4.5ms, breaking usb protocol
-            // and usually both of these will activate in the same loop, so host
-            // needs to wait > 9ms before next usb request
-            if (isEvent(EVENT_ERASE_APPLICATION)) eraseApplication();
+            // so host needs to wait > 9ms before next usb request
+            // -> not true! they cannot activate in the same loop. Host only 
+            // needs to wait 5-6ms.
+           
+             if (isEvent(EVENT_ERASE_APPLICATION)) eraseApplication();
             if (isEvent(EVENT_WRITE_PAGE)) tiny85FlashWrites();
 
 #       if BOOTLOADER_CAN_EXIT            
@@ -449,12 +473,15 @@ int main(void) {
 #       endif
            
             clearEvents();
+        }        
 
 #       if  LED_PRESENT
             LED_MACRO( ((uint8_t*)&idlePolls)[1] )
 #       endif
 	            
-        } while(bootLoaderCondition());  /* main event loop runs so long as bootLoaderCondition remains truthy */
+//        } while(bootLoaderCondition());  /* main event loop runs so long as bootLoaderCondition remains truthy */
+        } while(1);  /* main event loop runs so long as bootLoaderCondition remains truthy */
+    
     }
     
     // set clock prescaler to desired clock speed (changing from clkdiv8, or no division, depending on fuses)

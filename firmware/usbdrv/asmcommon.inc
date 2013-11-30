@@ -99,7 +99,8 @@ doReturn:
     rjmp    waitForJ            ;[51] save the pops and pushes -- a new interrupt is already pending
 sofError:
     POP_RETI                    ;macro call
-    reti
+ ;   reti
+	ret
 
 handleData:
 #if USB_CFG_CHECK_CRC

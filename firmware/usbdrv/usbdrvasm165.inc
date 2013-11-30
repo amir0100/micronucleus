@@ -46,10 +46,15 @@ of CPU cycles, but even an exact number of cycles!
 USB_INTR_VECTOR:
 ;order of registers pushed: YL, SREG [sofError], r0, YH, shift, x1, x2, x3, x4, cnt
     push    YL              ; push only what is necessary to sync with edge ASAP
-    in      YL, SREG				; 
-    push    YL						; 
+ ;   in      YL, SREG				; 
+ ;   push    YL						; 
 
-#ifdef TINY85MODE
+;	ldi 	YL,0
+;	USB_INTR_PENDING = 1<<USB_INTR_PENDING_BIT;
+	ldi		YL,1<<USB_INTR_PENDING_BIT
+	out		USB_INTR_PENDING, YL
+;#ifdef TINY85MODE
+#if 0
 ; look for magic word "B007" at the bottom of the stack
 	lds YL, RAMEND
 	cpi YL, 0xB0
@@ -373,8 +378,8 @@ macro POP_STANDARD ; 16 cycles
     endm
 macro POP_RETI     ; 5 cycles
     pop     YL
-    out     SREG, YL
-    pop     YL
+ ;   out     SREG, YL
+ ;   pop     YL
     endm
 
 #include "asmcommon.inc"
