@@ -105,7 +105,6 @@ static addr_t currentAddress; // current progmem address, used for erasing and w
 /* ------------------------------------------------------------------------ */
 static inline void eraseApplication(void);
 static void writeWordToPageBuffer(uint16_t data);
-static void fillFlashWithVectors(void);
 static uchar usbFunctionSetup(uchar data[8]);
 static uchar usbFunctionWrite(uchar *data, uchar length);
 static inline void leaveBootloader(void);
@@ -130,7 +129,6 @@ static inline void eraseApplication(void) {
     }
     
 	currentAddress = 0;
-    fillFlashWithVectors();
 }
 
 
@@ -177,31 +175,6 @@ static void writeWordToPageBuffer(uint16_t data) {
     currentAddress += 2;
 }
 
-// fills the rest of this page with vectors - interrupt vector or tinyvector tables where needed
-static void fillFlashWithVectors(void) {
-    //int16_t i;
-    //
-    // fill all or remainder of page with 0xFFFF (as if unprogrammed)
-    //for (i = currentAddress % SPM_PAGESIZE; i < SPM_PAGESIZE; i += 2) {
-    //    writeWordToPageBuffer(0xFFFF); // is where vector tables are sorted out
-    //}
-    
-    // TODO: Or more simply: 
-
-
-#if SPM_PAGESIZE<256
-    do {
-	    writeWordToPageBuffer(0xFFFF);
-    } while ((uchar)currentAddress % SPM_PAGESIZE);
-#else
-    do {
-	    writeWordToPageBuffer(0xFFFF);
-    } while (currentAddress % SPM_PAGESIZE);
-#endif
-
-    boot_page_write(currentAddress - 2);
-  
-}
 
 /* ------------------------------------------------------------------------ */
 
