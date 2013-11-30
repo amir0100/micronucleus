@@ -104,7 +104,6 @@ static addr_t currentAddress; // current progmem address, used for erasing and w
 
 /* ------------------------------------------------------------------------ */
 static inline void eraseApplication(void);
-static void writeFlashPage(void);
 static void writeWordToPageBuffer(uint16_t data);
 static void fillFlashWithVectors(void);
 static uchar usbFunctionSetup(uchar data[8]);
@@ -132,18 +131,8 @@ static inline void eraseApplication(void) {
     
 	currentAddress = 0;
     fillFlashWithVectors();
-  //  sei();
 }
 
-// simply write currently stored page in to already erased flash memory
-static void writeFlashPage(void) {
- //   uint8_t previous_sreg = SREG; // backup current interrupt setting
-//    cli();
-    boot_page_write(currentAddress - 2);
-   //  boot_spm_busy_wait(); // Wait until the memory is written.
-   // CPU is halted anyways
- //   SREG = previous_sreg; // restore interrupts to previous state
-}
 
 // clear memory which stores data to be written by next writeFlashPage call
 #define __boot_page_fill_clear()   \
@@ -164,8 +153,6 @@ static void writeWordToPageBuffer(uint16_t data) {
     if (currentAddress == (RESET_VECTOR_OFFSET * 2)) {
         data = 0xC000 + (BOOTLOADER_ADDRESS/2) - 1;
     }
-
-
     
     // at end of page just before bootloader, write in tinyVector table
     // see http://embedded-creations.com/projects/attiny85-usb-bootloader-overview/avr-jtag-programmer/
@@ -184,17 +171,7 @@ static void writeWordToPageBuffer(uint16_t data) {
     // in the page buffer already
     if (currentAddress == 0x0000) __boot_page_fill_clear();
     
-  //  previous_sreg = SREG; // backup previous interrupt settings
-  //  cli(); // ensure interrupts are disabled
     boot_page_fill(currentAddress, data);
-//    SREG = previous_sreg; // restore previous interrupt setting
-    
-    // only need to erase if there is data already in the page that doesn't match what we're programming
-    // TODO: what about this: if (pgm_read_word(currentAddress) & data != data) { ??? should work right?
-    //if (pgm_read_word(currentAddress) != data && pgm_read_word(currentAddress) != 0xFFFF) {
-    //if ((pgm_read_word(currentAddress) & data) != data) {
-    //    fireEvent(EVENT_PAGE_NEEDS_ERASE);
-    //}
     
     // increment progmem address by one word
     currentAddress += 2;
@@ -222,8 +199,8 @@ static void fillFlashWithVectors(void) {
     } while (currentAddress % SPM_PAGESIZE);
 #endif
 
-
-    writeFlashPage();
+    boot_page_write(currentAddress - 2);
+  
 }
 
 /* ------------------------------------------------------------------------ */
@@ -408,9 +385,11 @@ int main(void) {
             // needs to wait 5-6ms.
            
              if (isEvent(EVENT_ERASE_APPLICATION)) eraseApplication();
-             if (isEvent(EVENT_WRITE_PAGE)) writeFlashPage();   // This is only ever called when the page is full. No need for page filling
-         
-//             if (isEvent(EVENT_WRITE_PAGE)) tiny85FlashWrites();
+             if (isEvent(EVENT_WRITE_PAGE)) boot_page_write(currentAddress - 2);   
+                    // Directly call flashpage writing. We can do this here because
+                    // 1) This even is only ever called when page is fully
+                    // 2) The call is blocking, no need to wait for anything
+                    // 3) Interrupts are already disabled.               
 
 #       if BOOTLOADER_CAN_EXIT            
             if (isEvent(EVENT_EXECUTE)) { // when host requests device run uploaded program
