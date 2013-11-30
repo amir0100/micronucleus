@@ -160,20 +160,19 @@ static void writeFlashPage(void) {
 
 // write a word in to the page buffer, doing interrupt table modifications where they're required
 static void writeWordToPageBuffer(uint16_t data) {
-    uint8_t previous_sreg;
-    
-    // first two interrupt vectors get replaced with a jump to the bootloader's vector table
-    if (currentAddress == (RESET_VECTOR_OFFSET * 2) || currentAddress == (USBPLUS_VECTOR_OFFSET * 2)) {
+
+    if (currentAddress == (RESET_VECTOR_OFFSET * 2)) {
         data = 0xC000 + (BOOTLOADER_ADDRESS/2) - 1;
     }
+
+
     
     // at end of page just before bootloader, write in tinyVector table
     // see http://embedded-creations.com/projects/attiny85-usb-bootloader-overview/avr-jtag-programmer/
     // for info on how the tiny vector table works
     if (currentAddress == BOOTLOADER_ADDRESS - TINYVECTOR_RESET_OFFSET) {
         data = vectorTemp[0] + ((FLASHEND + 1) - BOOTLOADER_ADDRESS)/2 + 2 + RESET_VECTOR_OFFSET;
-    } else if (currentAddress == BOOTLOADER_ADDRESS - TINYVECTOR_USBPLUS_OFFSET) {
-        data = vectorTemp[1] + ((FLASHEND + 1) - BOOTLOADER_ADDRESS)/2 + 1 + USBPLUS_VECTOR_OFFSET;
+       
 #if (!OSCCAL_RESTORE) && OSCCAL_16_5MHz   
     } else if (currentAddress == BOOTLOADER_ADDRESS - TINYVECTOR_OSCCAL_OFFSET) {
         data = OSCCAL;
@@ -262,7 +261,6 @@ static uchar usbFunctionSetup(uchar data[8]) {
     return 0;
 }
 
-
 // read in a page over usb, and write it in to the flash write buffer
 static uchar usbFunctionWrite(uchar *data, uchar length) {
     
@@ -271,14 +269,9 @@ static uchar usbFunctionWrite(uchar *data, uchar length) {
         if (currentAddress == RESET_VECTOR_OFFSET * 2) {
             vectorTemp[0] = *(short *)data;
         }
-        
-        if (currentAddress == USBPLUS_VECTOR_OFFSET * 2) {
-            vectorTemp[1] = *(short *)data;
-        }
-        
+
         // make sure we don't write over the bootloader!
         if (currentAddress >= BOOTLOADER_ADDRESS) {
-            //__boot_page_fill_clear();
             break;
         }
         
@@ -288,7 +281,6 @@ static uchar usbFunctionWrite(uchar *data, uchar length) {
     } while(length);
     
     // if we have now reached another page boundary, we're done
-    //uchar isLast = (writeLength == 0);
 	
 #if SPM_PAGESIZE<256
 	// Hack to reduce code size
