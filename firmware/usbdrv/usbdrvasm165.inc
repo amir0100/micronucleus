@@ -4,7 +4,7 @@
  * Creation Date: 2007-04-22
  * Tabsize: 4
  * Copyright: (c) 2007 by OBJECTIVE DEVELOPMENT Software GmbH
- * Portions Copyright: (c) 2012 Louis Beaudoin
+ * Modified for polled USB handling by cpldcpu@gmail.com Nov 30, 2013
  * License: GNU GPL v2 (see License.txt), GNU GPL v3 or proprietary (CommercialLicense.txt)
  * Revision: $Id: usbdrvasm165.inc 740 2009-04-13 18:23:31Z cs $
  */
@@ -36,46 +36,15 @@ of CPU cycles, but even an exact number of cycles!
 ; Numbers in brackets are clocks counted from center of last sync bit
 ; when instruction starts
 
-; the code enabled by TINY85MODE is inteded only for use with the tiny85-compatible USBaspLoader
-; project.  
-; with TINY85MODE set, the beginning of the ISR checks for a magic word "B007" at the very bottom of the stack
-; and jumps to the application's ISR if the magic word isn't present
-; the max allowable interrupt latency is lower given this additional code before getting to the 
-; USB-specific portion of the ISR.
-
 USB_INTR_VECTOR:
 ;order of registers pushed: YL, SREG [sofError], r0, YH, shift, x1, x2, x3, x4, cnt
-    push    YL              ; push only what is necessary to sync with edge ASAP
+ ;   push    YL              ; push only what is necessary to sync with edge ASAP
  ;   in      YL, SREG				; 
  ;   push    YL						; 
 
-;	ldi 	YL,0
-;	USB_INTR_PENDING = 1<<USB_INTR_PENDING_BIT;
 	ldi		YL,1<<USB_INTR_PENDING_BIT
 	out		USB_INTR_PENDING, YL
-;#ifdef TINY85MODE
-#if 0
-; look for magic word "B007" at the bottom of the stack
-	lds YL, RAMEND
-	cpi YL, 0xB0
-	brne cleanupAndJumpToApp
 
-	lds YL, RAMEND-1
-	cpi YL, 0x07
-	breq cleanupBootloaderIntStack
-
-cleanupAndJumpToApp:
-; magic word was not found, put registers back to where they were before this ISR ran, and jump to application ISR
-	pop YL
-	out      SREG, YL
-	pop YL
-	
-	rjmp __vectors - TINYVECTOR_USBPLUS_OFFSET
-
-cleanupBootloaderIntStack:
-; magic word was found, put registers 
-	CLR YL					; [-19] ensure we meet below requirements for YL < 0x80 
-#endif
 ;----------------------------------------------------------------------------
 ; Synchronize with sync pattern:
 ;----------------------------------------------------------------------------
@@ -377,7 +346,7 @@ macro POP_STANDARD ; 16 cycles
     pop     r0
     endm
 macro POP_RETI     ; 5 cycles
-    pop     YL
+ ;   pop     YL
  ;   out     SREG, YL
  ;   pop     YL
     endm

@@ -129,6 +129,11 @@ these macros are defined, the boot loader uses them.
  * accessing the EEPROM on the ATMega8. Costs ~54 bytes.
  */
 #define BOOTLOADER_CAN_EXIT         1
+
+#ifndef BOOTLOADER_CAN_EXIT
+#   define  BOOTLOADER_CAN_EXIT     0
+#endif
+
 /* If this macro is defined to 1, the boot loader will exit shortly after the
  * programmer closes the connection to the device. Costs ~36 bytes.
  * Required for TINY85MODE
@@ -180,9 +185,13 @@ these macros are defined, the boot loader uses them.
 #define TINY85MODE
 
 // number of bytes before the boot loader vectors to store the tiny application vector table
+//#define TINYVECTOR_RESET_OFFSET     4
+//#define TINYVECTOR_USBPLUS_OFFSET   2
+//#define TINYVECTOR_OSCCAL_OFFSET    6
+
 #define TINYVECTOR_RESET_OFFSET     4
-#define TINYVECTOR_USBPLUS_OFFSET   2
-#define TINYVECTOR_OSCCAL_OFFSET    6
+#define TINYVECTOR_OSCCAL_OFFSET    2
+
 
 #define RESET_VECTOR_OFFSET         0
 #define USBPLUS_VECTOR_OFFSET       2
