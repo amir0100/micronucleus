@@ -109,10 +109,6 @@ static void writeWordToPageBuffer(uint16_t data);
 static void fillFlashWithVectors(void);
 static uchar usbFunctionSetup(uchar data[8]);
 static uchar usbFunctionWrite(uchar *data, uchar length);
-static inline void initForUsbConnectivity(void);
-static inline void tiny85FlashInit(void);
-static inline void tiny85FlashWrites(void);
-//static inline void tiny85FinishWriting(void);
 static inline void leaveBootloader(void);
 
 // erase any existing application and write in jumps for usb interrupt and reset to bootloader
@@ -269,8 +265,6 @@ static uchar usbFunctionSetup(uchar data[8]) {
 
 // read in a page over usb, and write it in to the flash write buffer
 static uchar usbFunctionWrite(uchar *data, uchar length) {
-    //if (length > writeLength) length = writeLength; // test for missing final page bug
-    //writeLength -= length;
     
     do {
         // remember vectors or the tinyvector table 
@@ -322,63 +316,18 @@ void PushMagicWord (void) {
 }
 
 /* ------------------------------------------------------------------------ */
-
-static inline void initForUsbConnectivity(void) {
- 
-    /* enforce USB re-enumerate: */
-    usbDeviceDisconnect();  /* do this while interrupts are disabled */
-    _delay_ms(300);        // reduced to 300ms from 500ms to allow faster resetting when no usb connected
-    usbDeviceConnect();
-    usbInit();    // Initialize INT settings after reconnect
-//    sei();
-}
-
-#if 0
-static inline void tiny85FlashInit(void) {
-    // check for erased first page (no bootloader interrupt vectors), add vectors if missing
-    // this needs to happen for usb communication to work later - essential to first run after bootloader
-    // being installed
-    
-	if(pgm_read_byte(RESET_VECTOR_OFFSET * 2+1) == 0xff) fillFlashWithVectors();   // write vectors if flash is empty
-	
-    // TODO: necessary to reset currentAddress?
-    currentAddress = 0;
-}
-
-
-static inline void tiny85FlashWrites(void) {
-      
-
-#if SPM_PAGESIZE<256
-	// Hack to reduce code size
-    if ((uchar)currentAddress % SPM_PAGESIZE)
-#else
-    if (currentAddress % SPM_PAGESIZE) 
-#endif
-	{
-    // when we aren't perfectly aligned to a flash page boundary
-        fillFlashWithVectors(); // fill up the rest of the page with 0xFFFF (unprogrammed) bits
-    } else {
-        writeFlashPage(); // otherwise just write it
-    }
-}
-#endif
 // reset system to a normal state and launch user program
+
 static inline void leaveBootloader(void) {
-    _delay_ms(10); // removing delay causes USB errors
+ //   _delay_ms(10); // removing delay causes USB errors -> already taken care off in main loop
     
     bootLoaderExit();
- //   cli();
 	usbDeviceDisconnect();  /* Disconnect micronucleus */
 
-    wdt_disable();      /* Disable watchdog */
+//    wdt_disable();      /* Disable watchdog */
 	
     USB_INTR_ENABLE = 0;
     USB_INTR_CFG = 0;       /* also reset config bits */
-
-    // clear magic word from bottom of stack before jumping to the app
-    *(uint8_t*)(RAMEND) = 0x00; // A single write is sufficient to invalidate magic word
-  //  *(uint8_t*)(RAMEND-1) = 0x00; 
     
 #if (!OSCCAL_RESTORE) && OSCCAL_16_5MHz   
     // adjust clock to previous calibration value, so user program always starts with same calibration
@@ -426,7 +375,11 @@ int main(void) {
             LED_INIT();
 #       endif 
         
-        initForUsbConnectivity();
+        usbDeviceDisconnect();  /* do this while interrupts are disabled */
+        _delay_ms(300);        // reduced to 300ms from 500ms to allow faster resetting when no usb connected
+        usbDeviceConnect();
+        usbInit();    // Initialize INT settings after reconnect
+
     	
  // The timing        
         do {
