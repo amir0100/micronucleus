@@ -14,10 +14,13 @@
 #     make lock    			# to protect the boot loader from overwriting
 #     make disablereset		# for ATtiny85 target - to use external reset line for IO (CAUTION: this is not easy to enable again, see README) 
 
-F_CPU = 16500000
-DEVICE = attiny85
-FUSEOPT = $(FUSEOPT_t85)
-LOCKOPT = -U lock:w:0x2f:m
+#F_CPU = 16500000
+#DEVICE = attiny85
+#FUSEOPT = $(FUSEOPT_t85)
+F_CPU = 12000000
+DEVICE = attiny841
+FUSEOPT = $(FUSEOPT_t841)
+
 
 # hexadecimal address for bootloader section to begin. To calculate the best value:
 # - make clean; make main.hex; ### output will list data: 2124 (or something like that)
@@ -34,6 +37,8 @@ FUSEOPT_88 = -U hfuse:w:0xd6:m -U lfuse:w:0xdf:m -U efuse:w:0x00:m
 FUSEOPT_168 = -U hfuse:w:0xd6:m -U lfuse:w:0xdf:m -U efuse:w:0x00:m
 FUSEOPT_328 = -U lfuse:w:0xf7:m -U hfuse:w:0xda:m -U efuse:w:0x03:m
 FUSEOPT_t85 = -U lfuse:w:0xe1:m -U hfuse:w:0xdd:m -U efuse:w:0xfe:m
+FUSEOPT_t84 = -U lfuse:w:0xe2:m -U hfuse:w:0xdd:m -U efuse:w:0xfe:m
+FUSEOPT_t841 = -U lfuse:w:0xe2:m -U hfuse:w:0xdd:m -U efuse:w:0xfe:m
 FUSEOPT_t85_DISABLERESET = -U lfuse:w:0xe1:m -U efuse:w:0xfe:m -U hfuse:w:0x5d:m
 # You may have to change the order of these -U commands.
 
@@ -139,10 +144,87 @@ FUSEOPT_t85_DISABLERESET = -U lfuse:w:0xe1:m -U efuse:w:0xfe:m -U hfuse:w:0x5d:m
 #        | +------------------ CKOUT (clock output on CKOUT pin -> disabled)
 #        +-------------------- CKDIV8 (divide clock by 8 -> don't divide)
 
+#---------------------------------------------------------------------
+# ATtiny84
+#---------------------------------------------------------------------
+# Fuse extended byte:
+# 0xFE = - - - -   - 1 1 0
+#                        ^
+#                        |
+#                        +---- SELFPRGEN (enable self programming flash)
+#
+# Fuse high byte:
+# 0xdd = 1 1 0 1   1 1 0 1
+#        ^ ^ ^ ^   ^ \-+-/ 
+#        | | | |   |   +------ BODLEVEL 2..0 (brownout trigger level -> 2.7V)
+#        | | | |   +---------- EESAVE (preserve EEPROM on Chip Erase -> not preserved)
+#        | | | +-------------- WDTON (watchdog timer always on -> disable)
+#        | | +---------------- SPIEN (enable serial programming -> enabled)
+#        | +------------------ DWEN (debug wire enable)
+#        +-------------------- RSTDISBL (disable external reset -> enabled)
+#
+# Fuse high byte ("no reset": external reset disabled, can't program through SPI anymore)
+# 0x5d = 0 1 0 1   1 1 0 1
+#        ^ ^ ^ ^   ^ \-+-/ 
+#        | | | |   |   +------ BODLEVEL 2..0 (brownout trigger level -> 2.7V)
+#        | | | |   +---------- EESAVE (preserve EEPROM on Chip Erase -> not preserved)
+#        | | | +-------------- WDTON (watchdog timer always on -> disable)
+#        | | +---------------- SPIEN (enable serial programming -> enabled)
+#        | +------------------ DWEN (debug wire enable)
+#        +-------------------- RSTDISBL (disable external reset -> disabled!)
+#
+# Fuse low byte:
+# 0xe1 = 1 1 1 0   0 0 1 0
+#        ^ ^ \+/   \--+--/
+#        | |  |       +------- CKSEL 3..0 (clock selection -> RC Oscillator)
+#        | |  +--------------- SUT 1..0 (BOD enabled, fast rising power)
+#        | +------------------ CKOUT (clock output on CKOUT pin -> disabled)
+#        +-------------------- CKDIV8 (divide clock by 8 -> don't divide)
+
+#---------------------------------------------------------------------
+# ATtiny841
+#---------------------------------------------------------------------
+# Fuse extended byte:
+# 0xFE = 1 1 1 1   1 1 1 0
+#                        ^
+#                        |
+#                        +---- SELFPRGEN (enable self programming flash)
+#
+# Fuse high byte:
+# 0xdd = 1 1 0 1   1 1 0 1
+#        ^ ^ ^ ^   ^ \-+-/ 
+#        | | | |   |   +------ BODLEVEL 2..0 (brownout trigger level -> 2.7V)
+#        | | | |   +---------- EESAVE (preserve EEPROM on Chip Erase -> not preserved)
+#        | | | +-------------- WDTON (watchdog timer always on -> disable)
+#        | | +---------------- SPIEN (enable serial programming -> enabled)
+#        | +------------------ DWEN (debug wire enable)
+#        +-------------------- RSTDISBL (disable external reset -> enabled)
+#
+# Fuse high byte ("no reset": external reset disabled, can't program through SPI anymore)
+# 0x5d = 0 1 0 1   1 1 0 1
+#        ^ ^ ^ ^   ^ \-+-/ 
+#        | | | |   |   +------ BODLEVEL 2..0 (brownout trigger level -> 2.7V)
+#        | | | |   +---------- EESAVE (preserve EEPROM on Chip Erase -> not preserved)
+#        | | | +-------------- WDTON (watchdog timer always on -> disable)
+#        | | +---------------- SPIEN (enable serial programming -> enabled)
+#        | +------------------ DWEN (debug wire enable)
+#        +-------------------- RSTDISBL (disable external reset -> disabled!)
+#
+# Fuse low byte:
+# 0xe2 = 1 1 1 0   0 0 1 0
+#        ^ ^ \+/   \--+--/
+#        | |  |       +------- CKSEL 3..0 (clock selection -> RC Oscillator)
+#        | |  +--------------- SUT 1..0 (BOD enabled, fast rising power)
+#        | +------------------ CKOUT (clock output on CKOUT pin -> disabled)
+#        +-------------------- CKDIV8 (divide clock by 8 -> don't divide)
+
+
+
 ###############################################################################
 
 # Tools:
-AVRDUDE = avrdude $(PROGRAMMER) -p $(DEVICE)
+#AVRDUDE = avrdude $(PROGRAMMER) -p $(DEVICE)
+AVRDUDE = avrdude $(PROGRAMMER) -p t841
 CC = avr-gcc
 
 # Options:
@@ -172,7 +254,7 @@ all: main.hex
 	$(CC) $(CFLAGS) -S $< -o $@
 
 flash:	all
-	$(AVRDUDE) -U flash:w:main.hex:i -B 10
+	$(AVRDUDE) -U flash:w:main.hex:i -B 5
 
 readflash:
 	$(AVRDUDE) -U flash:r:read.hex:i
@@ -182,9 +264,6 @@ fuse:
 	
 disablereset:
 	$(AVRDUDE) $(FUSEOPT_t85_DISABLERESET)
-
-lock:
-	$(AVRDUDE) $(LOCKOPT)
 
 read_fuses:
 	$(UISP) --rd_fuses

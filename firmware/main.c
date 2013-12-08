@@ -10,10 +10,10 @@
  */
  
 #define MICRONUCLEUS_VERSION_MAJOR 1
-#define MICRONUCLEUS_VERSION_MINOR 10
+#define MICRONUCLEUS_VERSION_MINOR 11
 // how many milliseconds should host wait till it sends another erase or write?
 // needs to be above 4.5 (and a whole integer) as avr freezes for 4.5ms
-#define MICRONUCLEUS_WRITE_SLEEP 8
+#define MICRONUCLEUS_WRITE_SLEEP 6
 
 // Use the old delay routines without NOP padding. This saves memory.
 #define __DELAY_BACKWARD_COMPATIBLE__     
@@ -115,12 +115,17 @@ static inline void eraseApplication(void) {
 	uint16_t ptr = BOOTLOADER_ADDRESS;
     cli();
     while (ptr) {
-        ptr -= SPM_PAGESIZE;        
+#if defined __AVR_ATtiny841__    
+        ptr -= SPM_PAGESIZE*4;        // Attiny841 deletes four pages at once!
+#else
+        ptr -= SPM_PAGESIZE;      
+#endif        
         boot_page_erase(ptr);
     }
     
+    // Write first 16 words to fill in vectors. Make sure page is not full to avoid writing page twice!
 	currentAddress = 0;
-    for (i=0; i<16; i++) writeWordToPageBuffer(0xFFFF);  // Write first 16 words to fill in vectors.
+    for (i=0; i<8; i++) writeWordToPageBuffer(0xFFFF); 
     writeFlashPage();  // enables interrupts
 }
 
@@ -221,6 +226,10 @@ static uchar usbFunctionSetup(uchar data[8]) {
 
 // read in a page over usb, and write it in to the flash write buffer
 static uchar usbFunctionWrite(uchar *data, uchar length) {
+
+   // CRC check. see http://forums.obdev.at/viewtopic.php?f=8&t=3458
+   if ( usbCrc16( data, length + 2 ) != 0x4FFE ) return 0xff;
+
     do {     
         // make sure we don't write over the bootloader!
         if (currentAddress >= BOOTLOADER_ADDRESS) break;
@@ -292,8 +301,6 @@ int main(void) {
         uint8_t prescaler_default = CLKPR;
     #endif
 
-    MCUSR=0;    /* need this to properly disable watchdog */
-    wdt_disable();
     
     bootLoaderInit();
 	
@@ -302,6 +309,10 @@ int main(void) {
 #	endif	
 
     if (bootLoaderStartCondition()) {
+
+        MCUSR=0;    /* need this to properly disable watchdog */
+        wdt_disable();
+
         #if LOW_POWER_MODE
             // turn off clock prescalling - chip must run at full speed for usb
             // if you might run chip at lower voltages, detect that in bootLoaderStartCondition

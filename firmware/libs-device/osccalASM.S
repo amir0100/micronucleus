@@ -99,10 +99,14 @@ calibrateOscillatorASM:
 
 usbCOloop:
 
+#if OSCCAL <64
 	out		OSCCAL, try
+#else
+	sts		OSCCAL, try
+#endif	
 	nop
 
-	; Delay values = F_CPU * 999e-6 / 5 + 0.5
+	; Delay values = floor(F_CPU * 999e-6 / 5 + 0.5)
 	
 #if (F_CPU == 16500000)
 	ldi		cnt16L, lo8(3297)
@@ -110,6 +114,12 @@ usbCOloop:
 #elif (F_CPU == 12800000)
 	ldi		cnt16L, lo8(2557)
 	ldi		cnt16H, hi8(2557)
+#elif (F_CPU == 12000000)
+	ldi		cnt16L, lo8(2398)
+	ldi		cnt16H, hi8(2398)
+#elif (F_CPU == 16000000)
+	ldi		cnt16L, lo8(3197)
+	ldi		cnt16H, hi8(3197)
 #else
 	#error "calibrateOscillatorASM: no delayvalues defined for this F_CPU setting"
 #endif
@@ -137,15 +147,22 @@ usbCOclocktoohigh:
 	brne	usbCOnoneighborhoodsearch
 	cp		opD, cnt16L
 	brcs	usbCOnoimprovement
+#if OSCCAL <64	
 	in		opV, OSCCAL
+#else
+	lds		opV, OSCCAL
+#endif	
 	mov		opD, cnt16L
 usbCOnoimprovement:
 	ldi		stp, 1
 usbCOnoneighborhoodsearch:
 	subi	i, 1
 	brne	usbCOloop
-
+#if OSCCAL <64
 	out		OSCCAL, opV
+#else
+	sts		OSCCAL, opV
+#endif	
 	nop
 	sei
     ret

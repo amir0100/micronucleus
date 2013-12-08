@@ -46,28 +46,32 @@ these macros are defined, the boot loader uses them.
 
 #define TINY85_HARDWARE_CONFIG_1  1
 #define TINY85_HARDWARE_CONFIG_2  2
+#define TINY84_HARDWARE_CONFIG_1  3
+#define TINY841_HARDWARE_CONFIG_1  3
 
 /* ---------------------------- Hardware Config ---------------------------- */
-#define HARDWARE_CONFIG     TINY85_HARDWARE_CONFIG_2
+//#define HARDWARE_CONFIG     TINY85_HARDWARE_CONFIG_2
+#define HARDWARE_CONFIG     TINY841_HARDWARE_CONFIG_1
 
 #define USB_CFG_IOPORTNAME      B
 /* This is the port where the USB bus is connected. When you configure it to
  * "B", the registers PORTB, PINB and DDRB will be used.
  */
 
-#ifndef __AVR_ATtiny85__
+
+#if HARDWARE_CONFIG == TINY84_HARDWARE_CONFIG_1
 # define USB_CFG_DMINUS_BIT      0
 /* This is the bit number in USB_CFG_IOPORT where the USB D- line is connected.
  * This may be any bit in the port.
  */
-# define USB_CFG_DPLUS_BIT       2
+# define USB_CFG_DPLUS_BIT       1
 /* This is the bit number in USB_CFG_IOPORT where the USB D+ line is connected.
- * This may be any bit in the port. Please note that D+ must also be connected
- * to interrupt pin INT0!
+ * This may be any bit in the port, but must be configured as a pin change interrupt.
  */
-#endif
+ #endif
+
  
-#if (defined __AVR_ATtiny85__) && (HARDWARE_CONFIG == TINY85_HARDWARE_CONFIG_1)
+#if HARDWARE_CONFIG == TINY85_HARDWARE_CONFIG_1
 # define USB_CFG_DMINUS_BIT      0
 /* This is the bit number in USB_CFG_IOPORT where the USB D- line is connected.
  * This may be any bit in the port.
@@ -76,9 +80,9 @@ these macros are defined, the boot loader uses them.
 /* This is the bit number in USB_CFG_IOPORT where the USB D+ line is connected.
  * This may be any bit in the port, but must be configured as a pin change interrupt.
  */
- #endif
+#endif
  
-#if (defined __AVR_ATtiny85__) && (HARDWARE_CONFIG == TINY85_HARDWARE_CONFIG_2)
+#if HARDWARE_CONFIG == TINY85_HARDWARE_CONFIG_2
 # define USB_CFG_DMINUS_BIT      3
 /* This is the bit number in USB_CFG_IOPORT where the USB D- line is connected.
  * This may be any bit in the port.
@@ -88,6 +92,7 @@ these macros are defined, the boot loader uses them.
  * This may be any bit in the port, but must be configured as a pin change interrupt.
  */
  #endif
+
 
 #define USB_CFG_CLOCK_KHZ       (F_CPU/1000)
 /* Clock rate of the AVR in MHz. Legal values are 12000, 16000 or 16500.
@@ -173,33 +178,55 @@ these macros are defined, the boot loader uses them.
 #define JUMPER_BIT  0   /* jumper is connected to this bit in port B, active low */
 
 /* tiny85 Architecture Specifics */
+/*
 #ifndef __AVR_ATtiny85__
 #  error "uBoot is only designed for attiny85"
 #endif
-
-#define TINY85MODE
-
-// number of bytes before the boot loader vectors to store the tiny application vector table
+*/
 #define TINYVECTOR_RESET_OFFSET     4
 #define TINYVECTOR_USBPLUS_OFFSET   2
 #define TINYVECTOR_OSCCAL_OFFSET    6
 
-#define RESET_VECTOR_OFFSET         0
-#define USBPLUS_VECTOR_OFFSET       2
+#ifdef TINY84_HARDWARE_CONFIG_1
 
-//#if BOOTLOADER_CAN_EXIT == 0
-//#    define BOOTLOADER_CAN_EXIT 1
-//#endif
-
+	// Attiny 841 redirection
+	#ifndef OSCCAL
+	#define OSCCAL OSCCAL0
+	#endif
 // setup interrupt for Pin Change for D+
-#define USB_INTR_CFG            PCMSK
-#define USB_INTR_CFG_SET        (1 << USB_CFG_DPLUS_BIT)
-#define USB_INTR_CFG_CLR        0
-#define USB_INTR_ENABLE         GIMSK
-#define USB_INTR_ENABLE_BIT     PCIE
-#define USB_INTR_PENDING        GIFR
-#define USB_INTR_PENDING_BIT    PCIF
-#define USB_INTR_VECTOR         PCINT0_vect
+// Uses Pin Change Interrupt 1
+
+	#define RESET_VECTOR_OFFSET         0
+	#define USBPLUS_VECTOR_OFFSET       3
+
+// PCINT1
+		
+	#define USB_INTR_CFG            PCMSK1
+	#define USB_INTR_CFG_SET        (1 << USB_CFG_DPLUS_BIT)
+	#define USB_INTR_CFG_CLR        0
+	#define USB_INTR_ENABLE         GIMSK
+	#define USB_INTR_ENABLE_BIT     PCIE1
+	#define USB_INTR_PENDING        GIFR
+	#define USB_INTR_PENDING_BIT    PCIF1
+	#define USB_INTR_VECTOR         PCINT1_vect
+#else
+// ATtiny85
+#define TINY85MODE
+// setup interrupt for Pin Change for D+
+// number of bytes before the boot loader vectors to store the tiny application vector table
+
+	#define RESET_VECTOR_OFFSET         0
+	#define USBPLUS_VECTOR_OFFSET       2
+
+	#define USB_INTR_CFG            PCMSK
+	#define USB_INTR_CFG_SET        (1 << USB_CFG_DPLUS_BIT)
+	#define USB_INTR_CFG_CLR        0
+	#define USB_INTR_ENABLE         GIMSK
+	#define USB_INTR_ENABLE_BIT     PCIE
+	#define USB_INTR_PENDING        GIFR
+	#define USB_INTR_PENDING_BIT    PCIF
+	#define USB_INTR_VECTOR         PCINT0_vect
+#endif
 
  
 // uncomment for chips with clkdiv8 enabled in fuses
@@ -238,7 +265,9 @@ these macros are defined, the boot loader uses them.
       (PINB & (_BV(USB_CFG_DMINUS_BIT) | _BV(USB_CFG_DMINUS_BIT))) == _BV(USB_CFG_DMINUS_BIT)
   #else
     #define bootLoaderStartCondition() 1
-  #endif
+//    #define bootLoaderStartCondition() (MCUSR&_BV(EXTRF))  // enter only after external reset. Needs pull up on RS pin!
+
+	#endif
 #endif
 
 /* ----------------------- Optional MCU Description ------------------------ */
@@ -303,8 +332,8 @@ these macros are defined, the boot loader uses them.
  *  comes with its own OSCCAL calibration or an external clock source is used.
  */
  
- #define OSCCAL_RESTORE 0
- #define OSCCAL_16_5MHz 1
+ #define OSCCAL_RESTORE 1
+ #define OSCCAL_16_5MHz 0
  
 /*  
  *  Defines handling of an indicator LED while the bootloader is active.  
@@ -321,11 +350,11 @@ these macros are defined, the boot loader uses them.
  *                            Use to define pattern.
  */ 
 
-#define	LED_PRESENT	    0
+#define	LED_PRESENT	    1
 
 #define	LED_DDR			DDRB
 #define LED_PORT		PORTB
-#define	LED_PIN			PB1
+#define	LED_PIN			PB2
 
 #define LED_INIT(x)		LED_PORT &=~_BV(LED_PIN);
 #define LED_EXIT(x)		LED_DDR  &=~_BV(LED_PIN);
