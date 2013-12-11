@@ -50,8 +50,14 @@ these macros are defined, the boot loader uses them.
 #define TINY841_HARDWARE_CONFIG_1  3
 
 /* ---------------------------- Hardware Config ---------------------------- */
-//#define HARDWARE_CONFIG     TINY85_HARDWARE_CONFIG_2
-#define HARDWARE_CONFIG     TINY841_HARDWARE_CONFIG_1
+
+#ifdef __AVR_ATtiny85__
+	#define HARDWARE_CONFIG     TINY85_HARDWARE_CONFIG_2
+#elif defined __AVR_ATtiny841__
+	#define HARDWARE_CONFIG     TINY841_HARDWARE_CONFIG_1
+#else
+	#error "bootloaderconfig: Unknown processor type!"
+#endif
 
 #define USB_CFG_IOPORTNAME      B
 /* This is the port where the USB bus is connected. When you configure it to
@@ -187,7 +193,7 @@ these macros are defined, the boot loader uses them.
 #define TINYVECTOR_USBPLUS_OFFSET   2
 #define TINYVECTOR_OSCCAL_OFFSET    6
 
-#ifdef TINY84_HARDWARE_CONFIG_1
+#if HARDWARE_CONFIG == TINY84_HARDWARE_CONFIG_1
 
 	// Attiny 841 redirection
 	#ifndef OSCCAL
